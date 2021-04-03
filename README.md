@@ -16,7 +16,7 @@ I'm open to issues and PRs if you find improvements to make to these!
 - [Slides deck from the talk](#slides)
 - [Splitting tests manually: Catch-all job](#splitting-tests-manually-catch-all-job)
 - [Splitting tests automatically between boxes](#splitting-tests-automatically-between-boxes)
-
+- [Inspecting the contents of Docker Images and Layers](#inspecting-the-contents-of-docker-images-and-layers)
 
 ## Slides
 
@@ -86,3 +86,24 @@ Example CI commands:
 - Run tests files that match a specific pattern, inside `spec/some_dir`:    
   `rspec $(./split_tests spec/some_dir -name "*_spec.rb")`
 
+
+## Inspecting the contents of Docker Images and Layers
+
+Use [the dive tool](https://github.com/wagoodman/dive)!
+
+Follow the installation and usage instructions in that repo to get it started.
+
+To optimize your layers, focus on layers that take a significant amount of space, `Tab`
+to explore the filesystem, filter out "unmodified" files with `Ctrl+U`, and browse around
+to see if any large files/directories look deletable.
+
+If you find some, you can delete them by adding `rm` commands to your Dockerfile:
+
+```
+RUN command_that_leaves_behind_useless_files \
+    && rm -rf useless_path_you_found_with_dive
+```
+
+Make sure to do the deletion in the same Docker step using `&&`, or the deletion will
+happen in a separate layer, and the files you are deleting will *still* be there where you
+found them.
