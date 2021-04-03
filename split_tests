@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# Split test files between multiple boxes.
+#
+# Finds files within the paths/options given, and picks a consistent slice of them based
+# on "what box this is out of how many".
+#
+# Requires:
+#   - parameters with the paths/options to send to `find`
+#   - environment variables BOX_COUNT (1-based) and BOX_INDEX (0-based) specifying how
+#     many boxes we are splitting between, and which one is "this one"
+#
+# Example rspec usage: `rspec $(./split_tests spec/some_dir -name "*_spec.rb")`
+#
+# If you want to test this script locally and manually set the env variables in the command itself:
+# `echo $(BOX_INDEX=0 BOX_COUNT=3 ./split_tests spec/some_dir -name "*_spec.rb")`
+#
+# How it works:
+# The `NR` variable in awk tells us which row of the input we're processing, so taking the
+# modulo against the BOX_COUNT tells us which box to run it in. Comparing it to the current
+# BOX_INDEX lets us decide whether to return that file to pass over to the test runner,
+# or skip it.
+
+find $@ | sort | awk "NR % $BOX_COUNT == $BOX_INDEX"
