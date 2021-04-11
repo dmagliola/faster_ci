@@ -17,6 +17,7 @@ I'm open to issues and PRs if you find improvements to make to these!
 - [Splitting tests manually: Catch-all job](#splitting-tests-manually-catch-all-job)
 - [Splitting tests automatically between boxes](#splitting-tests-automatically-between-boxes)
 - [Inspecting the contents of Docker Images and Layers](#inspecting-the-contents-of-docker-images-and-layers)
+- [Detecting and Reporting Flaky Tests](#detecting-and-reporting-flaky-tests)
 
 ## Slides
 
@@ -107,3 +108,9 @@ RUN command_that_leaves_behind_useless_files \
 Make sure to do the deletion in the same Docker step using `&&`, or the deletion will
 happen in a separate layer, and the files you are deleting will *still* be there where you
 found them.
+
+
+## Detecting and Reporting Flaky Tests
+
+Find sample scripts ready to be adapted to your needs, and documentation on how they work 
+and how to use them in the [flaky_detector directory](flaky_detector)

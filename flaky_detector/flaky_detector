@@ -1,0 +1,85 @@
+#!/bin/bash
+
+# Run your rspec tests, retry failed ones, and detect and report flakies (tests that
+#   failed on the first run, but succeeded on retry)
+#
+# This script will run the rspec test command you pass in and, if there are failures,
+# re-run it with `--only-failures`. Both runs will keep a record of what tests succeeded or
+# failed, and this script will compare those logs to detect tests that failed on the
+# first run but succeeded on the second one. These are flaky, and this script will call
+# `flaky_reporter` to create a ticket for that flaky test in your bug tracker.
+#
+# IMPORTANT: This script will probably not work as-is for you, read on for the parts that
+# you'll need to modify.
+#
+# Requires:
+#   - `rspec` command line to run with all its parameters. See "Usage" below for examples.
+#   - Rspec must be configured to report the outcome of its tests.
+#       See file `rspec_config.rb` in this directory for an example of how to configure this.
+#       In addition, variable `TEST_FAILURES_FILE` must be pointed to the same output path.
+#   - Variable `FLAKE_REPORTER_PATH` below needs to point to the `flaky_reporter` script
+#       which will be called when a flaky is detected so it can create a bug tracker ticket.
+#       You'll need to repoint that to wherever you put that script in your project, relative
+#       to the working directory from where this script is run.
+#   - It's important to link to the actual CI build in the ticket we create, so developers
+#       investigating can see the whole context, including which test failed (this script
+#       only reports the filename). Different CI providers will give you this information
+#       in different ENV variables, so you need to customize this to your specific situation.
+#    - Finally, `flaky_reporter` doesn't really do anything, it's just an example on how
+#       you *could* report this, but you'll need to tailor it to your needs and your specific
+#       bug tracking software. Read the comments at the top of `flaky_reporter` for more
+#       information.
+#
+# Example usage:
+#
+# Call `flaky_detector` passing in the same command line you'd use to call rspec.
+# e.g.: `./flaky_detector/flaky_detector bundle exec rspec  --format documentation`
+#
+# If using the `split_tests` script in this repo:
+# `./flaky_detector/flaky_detector bundle exec rspec $(./split_tests spec)`
+#
+#
+# How it works:
+# When rspec runs, it'll create a file with the outcome of each test (you'll need to
+# configure this following the example in `rspec_config.rb`).
+# If there are failures, this script will take a copy of that file, and run rspec again
+# with the `--only-failures` flag, and then compare both version of this "outcomes file".
+# This comparison is in function `detect_flakies`, and it's looking for tests that failed
+# in the first run but succeeded in the second. For each one that it finds, it'll call
+# `flaky_reporter` to create a ticket in your bug tracker.
+
+set -eu -o pipefail
+
+# TODO!!: Modify these variables for your use case
+TEST_FAILURES_FILE="/tmp/rspec_examples.txt" # same as configured in your spec_helper.rb
+FLAKY_REPORTER_PATH="./flaky_detector/flaky_reporter"
+CI_BUILD_URL="ENV variable pointing to the Build URL" # e.g. CI_BUILD_URL=$CIRCLE_BUILD_URL
+
+# These you shouldn't need to modify
+RSPEC_COMMAND=$@
+TEST_FAILURES_FILE_FIRST_RUN="/tmp/rspec_examples_first_run.txt" # copy to compare
+
+run_tests() {
+  ${RSPEC_COMMAND}
+}
+
+re_run_failed_tests() {
+  cp $TEST_FAILURES_FILE $TEST_FAILURES_FILE_FIRST_RUN
+  ${RSPEC_COMMAND} --only-failures
+}
+
+# Compare the output of both runs, and find tests that failed the first time, but succeeded
+# the second time, and call `flaky_reporter` with their paths.
+# Check the README.md in this directory for an explanation on this crazy command.
+detect_flakies() {
+  grep "| failed" $TEST_FAILURES_FILE_FIRST_RUN \
+    | cut -d" " -f1 \
+    | xargs -I{} grep -F {} $TEST_FAILURES_FILE \
+    | grep "| passed" \
+    | cut -d"[" -f1 \
+    | uniq \
+    | xargs -I{} $FLAKY_REPORTER_PATH --path "{}" --ci_build_url "$CI_BUILD_URL" \
+  || true
+}
+
+run_tests || (re_run_failed_tests && detect_flakies)

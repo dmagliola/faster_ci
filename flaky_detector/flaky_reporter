@@ -1,0 +1,85 @@
+#!/usr/bin/env ruby
+
+# Called by the `flaky_detector` to create a ticket in your bug tracker for the flaky
+# test we found.
+#
+# This script is just an example of something you *could* do, but it doesn't actually
+# do anything. You'll need to modify it to interact with your actual bug tracker, and to
+# suit it to your needs.
+#
+# It doesn't need to be a Ruby script, by the way, you can rewrite this in Bash, or whatever
+# you find easiest for your particular bug tracker, for example, if it has a CLI you can
+# invoke easily, or a library in some other language.
+#
+# Receives 2 parameters:
+#  - `--path`: The path to the file containing the flaky test
+#  - `--ci_build_url`: The URL to the failed CI build, so you can investigate the flake.
+#
+# NOTE: If flaky tests have been found in multiple files, this script will be called
+# once for each file.
+#
+# Requires:
+#  - Environment variables set so we can write to your bug tracker (API tokens, etc),
+#    plus anything else you might want to add to customize the ticket creation (which
+#    "project" in your bug tracker to send this to, labels to add, etc)
+#  - Any gems this script uses must be in the Gemfile for your application that gets
+#    installed in CI (so, probably under the `test` group).
+#
+# Example invocation:
+#
+# `./flaky_detector/flaky_reporter --path "./spec/a_dir/something_spec.rb" --ci_build_url "https://your_ci_platform.com/builds/1234567890"`
+
+require 'optparse'
+
+def parse_args
+  {}.tap do |result|
+    OptionParser.new do |opts|
+      opts.on("--path PATH") { |p| result[:path] = p }
+      opts.on("--ci_build_url URL") { |url| result[:ci_build_url] = url }
+    end.parse!
+  end
+end
+
+options = parse_args
+puts "Reporting flaky in file '#{ options[:path] }'. Build details at: #{ options[:ci_build_url] }"
+
+#----------------------------------------------------------------------------------
+
+# Simple use case: create a ticket with the details
+# -------------------------------------------------
+
+ticket_title = "Flaky test found in file: #{ options[:path] }"
+ticket_body = <<-BODY
+Flaky test found in file: #{ options[:path] }
+
+CI Build Details: #{ options[:ci_build_url] }
+BODY
+
+# You might want to configure different projects / teams / other settings for different
+# steps in your build. Environment variables set in your CI steps are the easiest way to
+# do that. If you don't need that, you can simply hard-code the values here.
+project = ENV["BUG_TRACKER_PROJECT"]
+
+# This is fantasy code, it'll be radically different based on the library you use to create
+# these tickets:
+#
+# client = BugTrackerGem.new(api_token: ENV["BUG_TRACKER_TOKEN"])
+# client.tickets.create(title: ticket_title, body: ticket_body, project: project)
+
+# A better version of this
+# -------------------------------------
+
+# A problem with the approach above is that it'll keep opening new tickets for the same
+# file if it keeps flaking. If your bug tracker lets you easily find by title, a better
+# approach is to find if we already have one, reopen it if necessary, and add a comment to
+# it, so each flaky file has one centralized ticket with all its failures over time.
+
+# Something like (this is extremely pseudocode, of course):
+#
+# ticket = client.tickets.find(title: ticket_title)
+# if ticket
+#   ticket.reopen! if ticket.closed?
+#   ticket.add_comment("Happened again. CI Build Details: #{ options[:ci_build_url] }")
+# else
+#   client.tickets.create(title: ticket_title, body: ticket_body, project: project)
+# end
