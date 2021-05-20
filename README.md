@@ -1,7 +1,9 @@
 # faster_ci
 
 This is a supplementary repo to my RailsConf 2021 talk 
-["Speed up your test suite by throwing computers at it"](https://railsconf.com/program/sessions#session-1117)  
+["Speed up your test suite by throwing computers at it"](https://www.youtube.com/watch?v=T3TipTdx_2k)  
+
+[![alt text](railsconf_youtube_thumbnail.png)](https://www.youtube.com/watch?v=T3TipTdx_2k)
 
 Here you can find all the code examples mentioned in the talk, the slides deck, and some 
 more resources.
